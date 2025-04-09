@@ -12,7 +12,7 @@ import cloudinary.uploader
 
 load_dotenv()
 
-TOKEN = os.getenv("TOKEN") or '7273476577:AAHMqjmPSovpxIK-ojhzYgC2b-olKgRmaZU'
+TOKEN = os.getenv("TOKEN") or '7273476577:AAFLQiuFstep1P7BS0P8YyeuzfFV0fi4MuY'
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
