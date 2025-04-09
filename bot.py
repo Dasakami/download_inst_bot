@@ -29,10 +29,10 @@ dp = Dispatcher()
 
 # Подключение к БД (если нужно)
 conn = psycopg2.connect(
-    dbname='insta_bot_db',
-    user='postgres',
-    password='1908',
-    host='localhost',
+    dbname='dsk_english_nuzc',
+    user='dasakami',
+    password='A724C6uh05U4bcRH6BWQpL7BncahfRIr',
+    host='dpg-cvn70i63jp1c7393phe0-a',
     port='5432'
 )
 cursor = conn.cursor()
