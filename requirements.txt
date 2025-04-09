@@ -1,0 +1,6 @@
+aiogram==3.3.0
+python-dotenv==1.0.1
+instaloader==4.10
+psycopg2-binary==2.9.9
+requests==2.31.0
+cloudinary==1.38.0
