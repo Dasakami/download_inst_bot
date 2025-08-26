@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16
+    container_name: bot_insta_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1908
+      POSTGRES_DB: botInstaBb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    
+  bot:
+    build: .
+    container_name: telegram_insta_bot
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DB_USER: postgres
+      DB_PASS: 1908
+      DB_NAME: botInstaBb
+      DB_HOST: postgres   # <-- здесь было db
+      TOKEN: "7273476577:AAFcZhB8CA8xqL3OaA-aVDuM4bgW3ke8Y7s"
+    ports:
+      - "8003:8000"
+
+volumes:
+  pgdata:
