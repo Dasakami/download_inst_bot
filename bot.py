@@ -1,9 +1,10 @@
 import os
 import instaloader
+import psycopg2
 import asyncio
 import requests
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from dotenv import load_dotenv
 import cloudinary
@@ -21,22 +22,11 @@ cloudinary.config(
     api_secret='o9x3aYhIU-5KscBekBHHeo-m28E'
 )
 
-# === Instagram логин из .env ===
-IG_USERNAME = os.getenv("IG_USERNAME")
-IG_PASSWORD = os.getenv("IG_PASSWORD")
-
-# Инициализация Instaloader
-loader = instaloader.Instaloader()
-try:
-    loader.load_session_from_file(IG_USERNAME)
-except FileNotFoundError:
-    loader.login(IG_USERNAME, IG_PASSWORD)
-    loader.save_session_to_file()
-
-# === Состояние пользователя ===
+# === Состояние пользователя (упрощённо)
 user_state = {}
 
 # === Функции ===
+
 def upload_to_cloudinary(file_path, resource_type="video"):
     try:
         result = cloudinary.uploader.upload_large(file_path, resource_type=resource_type)
@@ -46,63 +36,53 @@ def upload_to_cloudinary(file_path, resource_type="video"):
         return None
 
 def download_instagram_video(url):
+    loader = instaloader.Instaloader()
     try:
         post_shortcode = url.split("/")[-2]
         post = instaloader.Post.from_shortcode(loader.context, post_shortcode)
 
-        if not post.is_video:
-            raise Exception("Это не видео.")
-
         video_url = post.video_url
-        if not video_url:
-            raise Exception("Видео не найдено.")
-
-        # Скачиваем видео потоково
-        response = requests.get(video_url, stream=True)
-        if response.status_code != 200:
-            raise Exception("Не удалось скачать видео по прямой ссылке.")
-
-        os.makedirs("videos", exist_ok=True)
-        file_name = f"{post.date_utc.strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
-        file_path = os.path.join("videos", file_name)
-
-        with open(file_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=1024*1024):
-                if chunk:
-                    f.write(chunk)
-
-        return file_path
-
+        if video_url:
+            response = requests.get(video_url)
+            if response.status_code == 200:
+                os.makedirs("videos", exist_ok=True)
+                file_name = f"{post.date_utc.strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
+                file_path = os.path.join("videos", file_name)
+                with open(file_path, 'wb') as f:
+                    f.write(response.content)
+                return file_path
+        raise Exception("Видео не найдено.")
     except Exception as e:
-        print(f"Ошибка загрузки видео: {e}")
+        print(f"Ошибка загрузки: {e}")
         return None
 
 def download_instagram_photo(url):
+    loader = instaloader.Instaloader()
     try:
         post_shortcode = url.split("/")[-2]
         post = instaloader.Post.from_shortcode(loader.context, post_shortcode)
 
+        # Проверка на фото
         if post.is_video:
             raise Exception("Это видео, а не фото.")
 
         photo_url = post.url
         response = requests.get(photo_url)
-        if response.status_code != 200:
-            raise Exception("Не удалось скачать фото.")
-
-        os.makedirs("photos", exist_ok=True)
-        file_name = f"{post.date_utc.strftime('%Y-%m-%d_%H-%M-%S')}.jpg"
-        file_path = os.path.join("photos", file_name)
-        with open(file_path, 'wb') as f:
-            f.write(response.content)
-
-        return file_path
-
+        if response.status_code == 200:
+            os.makedirs("photos", exist_ok=True)
+            file_name = f"{post.date_utc.strftime('%Y-%m-%d_%H-%M-%S')}.jpg"
+            file_path = os.path.join("photos", file_name)
+            with open(file_path, 'wb') as f:
+                f.write(response.content)
+            return file_path
+        raise Exception("Фото не найдено.")
     except Exception as e:
-        print(f"Ошибка загрузки фото: {e}")
+        print(f"Ошибка загрузки: {e}")
         return None
 
+
 # === Хэндлеры ===
+
 @dp.message(Command("start"))
 async def start_command(message: Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -134,11 +114,13 @@ async def handle_message(message: Message):
 
     if state == "awaiting_insta_video_link":
         url = message.text.strip()
+
         if "instagram.com" not in url:
             await message.answer("🚫 Это не похоже на ссылку Instagram. Попробуйте ещё раз.")
             return
 
         await message.answer("⏳ Скачиваю видео...")
+
         video_path = download_instagram_video(url)
 
         if video_path:
@@ -146,8 +128,7 @@ async def handle_message(message: Message):
             cloud_url = upload_to_cloudinary(video_path)
 
             if cloud_url:
-                # Отправляем локальный файл, чтобы Telegram точно принял
-                await message.answer_video(FSInputFile(video_path), caption="✅ Вот ваше видео из Instagram!")
+                await message.answer_video(cloud_url, caption="✅ Вот ваше видео из Instagram!")
             else:
                 await message.answer("⚠️ Не удалось загрузить видео в облако.")
 
@@ -155,15 +136,17 @@ async def handle_message(message: Message):
         else:
             await message.answer("❌ Не удалось скачать видео. Возможно, это не видео или приватный аккаунт.")
 
-        user_state.pop(message.from_user.id, None)
+        user_state.pop(message.from_user.id, None)  # сброс состояния
 
     elif state == "awaiting_insta_photo_link":
         url = message.text.strip()
+
         if "instagram.com" not in url:
             await message.answer("🚫 Это не похоже на ссылку Instagram. Попробуйте ещё раз.")
             return
 
         await message.answer("⏳ Скачиваю фото...")
+
         photo_path = download_instagram_photo(url)
 
         if photo_path:
@@ -179,12 +162,14 @@ async def handle_message(message: Message):
         else:
             await message.answer("❌ Не удалось скачать фото. Возможно, это не фото или приватный аккаунт.")
 
-        user_state.pop(message.from_user.id, None)
+        user_state.pop(message.from_user.id, None)  # сброс состояния
 
     else:
         await message.answer("👋 Используйте /start для начала работы с ботом.")
 
-# === Запуск бота ===
+
+# === Запуск ===
+
 async def main():
     await dp.start_polling(bot)
 
