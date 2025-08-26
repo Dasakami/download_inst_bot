@@ -27,16 +27,22 @@ cloudinary.config(
 IG_USERNAME = os.getenv("IG_USERNAME")
 IG_PASSWORD = os.getenv("IG_PASSWORD")
 
-# Инициализация Instaloader
 loader = instaloader.Instaloader()
-# Сохраняем сессию в файл, чтобы не логиниться каждый раз
-SESSION_FILE = os.path.join("/app", f"{IG_USERNAME}.session")
 
-if os.path.exists(SESSION_FILE):
+# Сессии будут храниться в папке /app/sessions (см. Docker volume)
+SESSION_DIR = "/app/sessions"
+os.makedirs(SESSION_DIR, exist_ok=True)
+SESSION_FILE = os.path.join(SESSION_DIR, f"{IG_USERNAME}.session")
+
+try:
     loader.load_session_from_file(IG_USERNAME, filename=SESSION_FILE)
-else:
+    print(f"Сессия загружена из {SESSION_FILE}")
+except FileNotFoundError:
+    print("Сессия не найдена, логинимся...")
     loader.login(IG_USERNAME, IG_PASSWORD)
     loader.save_session_to_file(SESSION_FILE)
+    print(f"Сессия сохранена в {SESSION_FILE}")
+
 
 # === Состояние пользователя ===
 user_state = {}
