@@ -27,21 +27,18 @@ cloudinary.config(
 IG_USERNAME = os.getenv("IG_USERNAME")
 IG_PASSWORD = os.getenv("IG_PASSWORD")
 
+SESSION_FILE = "/app/sessions/dskenglish.dsk.session"
+
 loader = instaloader.Instaloader()
 
-# Сессии будут храниться в папке /app/sessions (см. Docker volume)
-SESSION_DIR = "/app/sessions"
-os.makedirs(SESSION_DIR, exist_ok=True)
-SESSION_FILE = os.path.join(SESSION_DIR, f"{IG_USERNAME}.session")
-
-try:
+if os.path.exists(SESSION_FILE):
+    print("Загружаем существующую сессию...")
     loader.load_session_from_file(IG_USERNAME, filename=SESSION_FILE)
-    print(f"Сессия загружена из {SESSION_FILE}")
-except FileNotFoundError:
+else:
     print("Сессия не найдена, логинимся...")
     loader.login(IG_USERNAME, IG_PASSWORD)
     loader.save_session_to_file(SESSION_FILE)
-    print(f"Сессия сохранена в {SESSION_FILE}")
+
 
 
 # === Состояние пользователя ===
