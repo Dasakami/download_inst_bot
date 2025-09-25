@@ -1,12 +1,14 @@
+version: "3.9"
+
 services:
   db:
     image: postgres:16
     container_name: bot_insta_postgres
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1908
-      POSTGRES_DB: botInstaBb
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -19,11 +21,16 @@ services:
     depends_on:
       - db
     environment:
-      DB_USER: postgres
-      DB_PASS: 1908
-      DB_NAME: botInstaBb
-      DB_HOST: postgres   # <-- здесь было db
-      TOKEN: "7273476577:AAFcZhB8CA8xqL3OaA-aVDuM4bgW3ke8Y7s"
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: ${DB_HOST}  
+      TOKEN: ${TOKEN}
+      IG_USERNAME: ${IG_USERNAME}
+      IG_PASSWORD: ${IG_PASSWORD}
+      SESSION: ${SESSION}
+    volumes:
+      - ./sessions:/app/sessions
     ports:
       - "8003:8000"
 
